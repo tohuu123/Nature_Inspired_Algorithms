@@ -127,7 +127,7 @@ class FA:
 
 if __name__ == "__main__":
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-    from testing.continous_problems import sphere, rastrigin, ackley
+    from testing.continous import sphere, rastrigin, ackley
 
     DIMS        = 10
     N_FIREFLIES = 30

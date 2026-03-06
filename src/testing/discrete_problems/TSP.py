@@ -311,19 +311,14 @@ if __name__ == "__main__":
     N_CITIES = 15
     SEED     = 42
 
-    tsp = TSP.generate(
-        n_cities=N_CITIES,
-        seed=SEED,
-        time_limit=2000.0,
-        cost_limit=3000.0,
-    )
+    tsp = TSP.load_from_file("src/testing/discrete_problems/testcases/tsp_clustered_40.txt")
 
     print("=" * 56)
     print("  TSP Demo  –  %d cities" % N_CITIES)
     print("  Time limit : %s" % tsp.time_limit)
     print("  Cost limit : %s" % tsp.cost_limit)
     print("=" * 56)
-
+    
     solver = TSPSolver(tsp, beta=2.0)
 
     print("\n>>> Simulated Annealing")
@@ -334,6 +329,7 @@ if __name__ == "__main__":
         alpha=0.003,
         verbose=True,
     )
+    
     print("\n[SA] Best tour     :", sa_tour)
     print("[SA] Total distance: %.4f" % sa_dist)
     print("[SA] Total time    : %.4f" % tsp.total_time(sa_tour))
