@@ -38,8 +38,8 @@ from src.biology.ABC import ABC
 from src.biology.ACO import ACO
 from src.evolution.GA   import GA
 from src.evolution.DE   import DE
-from src.evolution.TLBO import TLBO
-from src.physics.SA     import SimulatedAnnealing
+from src.human.TLBO import TLBO
+from src.physics.SA  import SimulatedAnnealing
 
 # ── Traditional algorithms ────────────────────────────────────────────────
 from src.traditional.hill_climbing import HillClimbing
