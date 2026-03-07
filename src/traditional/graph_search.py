@@ -334,9 +334,138 @@ class AStar:
         self.grid.plot(path=self.path, visited=self.visited, title=title)
 
 
+class UCS:
+    """
+    Uniform-Cost Search on a Grid.
+
+    Expands the node with the lowest cumulative path cost g(n).
+    Equivalent to Dijkstra's algorithm when all edges have non-negative cost.
+    On a unit-cost grid this behaves identically to BFS but is included
+    to illustrate the priority-queue formulation.
+
+    Parameters
+    ----------
+    grid : Grid  The grid environment to search.
+    """
+
+    def __init__(self, grid):
+        self.grid = grid
+        self.path = []
+        self.visited = set()
+        self.nodes_expanded = 0
+        self.elapsed = 0.0
+
+    def run(self):
+        """
+        Execute UCS from grid.start to grid.goal.
+
+        Returns
+        -------
+        path    : list of (r, c) tuples – empty if no path found.
+        visited : set of explored cells.
+        """
+        t0 = time.perf_counter()
+        start, goal = self.grid.start, self.grid.goal
+        open_heap = [(0, start)]          # (g_score, node)
+        came_from = {start: None}
+        g_score = {start: 0}
+        self.visited = set()
+        self.nodes_expanded = 0
+
+        while open_heap:
+            g, node = heapq.heappop(open_heap)
+            if node in self.visited:
+                continue
+            self.visited.add(node)
+            self.nodes_expanded += 1
+
+            if node == goal:
+                self.path = self.grid.reconstruct_path(came_from, goal)
+                self.elapsed = time.perf_counter() - t0
+                return self.path, self.visited
+
+            for nb in self.grid.neighbors(*node):
+                tentative_g = g + 1      # uniform step cost
+                if tentative_g < g_score.get(nb, float("inf")):
+                    g_score[nb] = tentative_g
+                    came_from[nb] = node
+                    heapq.heappush(open_heap, (tentative_g, nb))
+
+        self.path = []
+        self.elapsed = time.perf_counter() - t0
+        return self.path, self.visited
+
+    def plot(self, title="UCS"):
+        """Visualise the UCS result on the grid."""
+        self.grid.plot(path=self.path, visited=self.visited, title=title)
+
+
+class GBFS:
+    """
+    Greedy Best-First Search on a Grid.
+
+    Expands the node with the smallest heuristic value h(n).
+    Not optimal — may find a suboptimal path — but typically fast.
+
+    Parameters
+    ----------
+    grid      : Grid      The grid environment to search.
+    heuristic : callable  h(a, b) -> float.  Defaults to Manhattan distance.
+    """
+
+    def __init__(self, grid, heuristic=None):
+        self.grid = grid
+        self.heuristic = heuristic if heuristic is not None else Heuristic.manhattan
+        self.path = []
+        self.visited = set()
+        self.nodes_expanded = 0
+        self.elapsed = 0.0
+
+    def run(self):
+        """
+        Execute GBFS from grid.start to grid.goal.
+
+        Returns
+        -------
+        path    : list of (r, c) tuples – empty if no path found.
+        visited : set of explored cells.
+        """
+        t0 = time.perf_counter()
+        start, goal = self.grid.start, self.grid.goal
+        open_heap = [(self.heuristic(start, goal), start)]
+        came_from = {start: None}
+        self.visited = set()
+        self.nodes_expanded = 0
+
+        while open_heap:
+            _, node = heapq.heappop(open_heap)
+            if node in self.visited:
+                continue
+            self.visited.add(node)
+            self.nodes_expanded += 1
+
+            if node == goal:
+                self.path = self.grid.reconstruct_path(came_from, goal)
+                self.elapsed = time.perf_counter() - t0
+                return self.path, self.visited
+
+            for nb in self.grid.neighbors(*node):
+                if nb not in self.visited and nb not in came_from:
+                    came_from[nb] = node
+                    heapq.heappush(open_heap, (self.heuristic(nb, goal), nb))
+
+        self.path = []
+        self.elapsed = time.perf_counter() - t0
+        return self.path, self.visited
+
+    def plot(self, title="Greedy Best-First Search"):
+        """Visualise the GBFS result on the grid."""
+        self.grid.plot(path=self.path, visited=self.visited, title=title)
+
+
 class AlgorithmComparison:
     """
-    Run and compare BFS, DFS, A* (Manhattan), and A* (Euclidean) on the same Grid.
+    Run and compare BFS, DFS, UCS, GBFS, A* (Manhattan), and A* (Euclidean) on the same Grid.
 
     Parameters
     ----------
@@ -349,7 +478,7 @@ class AlgorithmComparison:
 
     def run_all(self):
         """
-        Execute all four algorithms and collect metrics.
+        Execute all six algorithms and collect metrics.
 
         Metrics collected per algorithm
         --------------------------------
@@ -362,6 +491,8 @@ class AlgorithmComparison:
         algorithms = [
             ("BFS",              BFS(self.grid)),
             ("DFS",              DFS(self.grid)),
+            ("UCS",              UCS(self.grid)),
+            ("GBFS",             GBFS(self.grid, Heuristic.manhattan)),
             ("A* (Manhattan)",   AStar(self.grid, Heuristic.manhattan)),
             ("A* (Euclidean)",   AStar(self.grid, Heuristic.euclidean)),
         ]
@@ -396,17 +527,24 @@ class AlgorithmComparison:
         print("=" * len(header))
 
     def plot_all(self):
-        """Display a 2×2 subplot grid showing each algorithm's exploration and path."""
+        """Display a 2×3 subplot grid showing each algorithm's exploration and path."""
         if not self.results:
             self.run_all()
 
         names = list(self.results.keys())
-        fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+        n = len(names)
+        ncols = 3
+        nrows = (n + ncols - 1) // ncols
+        fig, axes = plt.subplots(nrows, ncols, figsize=(18, 6 * nrows))
         axes = axes.flatten()
 
         for ax, name in zip(axes, names):
             r = self.results[name]
             self.grid.plot(path=r["path"], visited=r["visited"], title=name, ax=ax)
+
+        # Hide unused axes
+        for ax in axes[n:]:
+            ax.axis("off")
 
         fig.suptitle("Pathfinding Algorithm Comparison", fontsize=14, fontweight="bold")
         plt.tight_layout()
