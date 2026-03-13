@@ -1,54 +1,38 @@
 # Nature Inspired Algorithms
 
-This project implements various nature-inspired optimization algorithms
+Collection of nature-inspired and traditional optimization/search algorithms,
+with benchmark workflows for continuous, discrete, and graph-search problems.
 
-## Installation
+## Quick Start
 
-Install the required dependencies:
+### 1) Create and activate a virtual environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 2) Install dependencies
 
 ```bash
 pip install -r requirement.txt
+pip install jupyter
 ```
 
-## Testing
-
-### Test Genetic Algorithm (GA)
-
-The GA algorithm is designed for discrete optimization:
+### 3) Launch Jupyter Notebook
 
 ```bash
-cd algorithms/biology/GA
-python GA.py
+jupyter notebook
 ```
 
-### Test Differential Evolution (DE)
+Open `benchmarks.ipynb` and run all cells to execute benchmarks and generate
+result files/plots in the `output/` folder.
 
-The DE algorithm can be tested on various continuous optimization functions:
+## Main Notebook Workflow
 
-```bash
-cd algorithms/biology/DE
-python DE.py
-```
-
-## Project Structure
-
-```
-Nature_Inspired_Algorithms/
-├── algorithms/
-│   ├── biology/
-│   │   ├── DE/
-│   │   │   └── DE.py          # Differential Evolution
-│   │   └── GA/
-│   │       └── GA.py          # Genetic Algorithm
-│   ├── classical/
-│   ├── evolutionary/
-│   ├── human/
-│   ├── physics/
-│   └── testing/
-│       └── continous/
-│           └── function.py    # Test functions (sphere, rastrigin, etc.)
-├── requirement.txt
-└── README.md
-```
+1. Open `benchmarks.ipynb`.
+2. Run cells from top to bottom.
+3. Review generated files in `output/` (JSON, CSV, and charts).
+4. View `visualization.ipynb` for additional plotting/inspection.
 
 
