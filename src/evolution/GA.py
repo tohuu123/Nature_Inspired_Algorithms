@@ -18,7 +18,7 @@ class GA:
     elitism_rate    : float     Fraction of elite individuals kept each generation (default 0.1).
     """
 
-    def __init__(self, fitness_func, chrom_len, pop_size=200, max_iter=100, CR=0.9, mutation_rate=0.01, tournament_size=3, elitism_rate=0.1):
+    def __init__(self, fitness_func, chrom_len, pop_size=200, max_iter=100, CR=0.9, mutation_rate=0.1, tournament_size=3, elitism_rate=0.1):
         self.fitness_func    = fitness_func
         self.chrom_len       = chrom_len
         self.pop_size        = pop_size

@@ -10,10 +10,6 @@ class FA:
 
     Parameters
     ----------
-    obj_func     : callable
-        Objective function to *minimise*.  Signature: f(x: ndarray) -> float.
-    bounds       : ndarray, shape (n_dims, 2)
-        Lower and upper search bounds [[lo, hi], ...].
     n_fireflies  : int
         Population size (number of fireflies).
     max_iter     : int
@@ -26,12 +22,13 @@ class FA:
         Light absorption coefficient (controls how fast β decreases).
     alpha_decay  : float
         Multiplicative decay of alpha per iteration (set to 1.0 = no decay).
+    
+    Notes
+    -----
+    The objective function and bounds are passed to the run() method.
     """
 
-    def __init__(self, obj_func, bounds, n_fireflies=25, max_iter=500, alpha=0.5, beta0=1.0, gamma=1.0, alpha_decay=0.97):
-        self.obj_func    = obj_func
-        self.bounds      = np.asarray(bounds, dtype=float)
-        self.n_dims      = len(self.bounds)
+    def __init__(self, n_fireflies=25, max_iter=500, alpha=0.5, beta0=1.0, gamma=1.0, alpha_decay=0.97):
         self.n_fireflies = n_fireflies
         self.max_iter    = max_iter
         self.alpha       = alpha
@@ -39,6 +36,9 @@ class FA:
         self.gamma       = gamma
         self.alpha_decay = alpha_decay
 
+        self.obj_func      = None
+        self.bounds        = None
+        self.n_dims        = None
         self.best_position = None
         self.best_score    = np.inf
         self.history       = []
@@ -54,12 +54,16 @@ class FA:
         """Gaussian attractiveness β(r) = β₀ * exp(-γ * r²)."""
         return self.beta0 * np.exp(-self.gamma * r_squared)
 
-    def run(self, verbose=True):
+    def run(self, obj_func, bounds, verbose=True):
         """
         Execute the Firefly Algorithm.
 
         Parameters
         ----------
+        obj_func : callable
+            Objective function to minimise. Signature: f(x: ndarray) -> float.
+        bounds : ndarray, shape (n_dims, 2)
+            Lower and upper search bounds [[lo, hi], ...].
         verbose : bool
             If True, print a progress line whenever a new best is found.
 
@@ -69,6 +73,10 @@ class FA:
         best_score    : float    Corresponding objective value.
         history       : list     Global best score per iteration.
         """
+        self.obj_func = obj_func
+        self.bounds   = np.asarray(bounds, dtype=float)
+        self.n_dims   = len(self.bounds)
+        
         lo, hi            = self.bounds[:, 0], self.bounds[:, 1]
         positions, scores = self._initialise()
 
@@ -86,7 +94,7 @@ class FA:
                         diff      = positions[j] - positions[i]
                         r_sq      = float(np.dot(diff, diff))
                         beta      = self._attractiveness(r_sq)
-                        epsilon   = np.random.rand(self.n_dims) - 0.5
+                        epsilon   = (np.random.rand(self.n_dims) - 0.5) * (hi - lo)
                         step      = beta * diff + alpha * epsilon
                         candidate = np.clip(new_positions[i] + step, lo, hi)
                         new_positions[i] = candidate
@@ -160,7 +168,7 @@ if __name__ == "__main__":
             alpha_decay=ALPHA_DECAY,
         )
 
-        best_pos, best_score, history = fa.run(verbose=True)
+        best_pos, best_score, history = fa.run(obj_func=func, bounds=bounds, verbose=True)
 
         print("\nBest solution : f([%s])" % np.around(best_pos, decimals=5))
         print("Best score    : %.5f" % best_score)

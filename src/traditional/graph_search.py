@@ -573,7 +573,7 @@ class AlgorithmComparison:
             ax.set_title(title, fontweight="bold")
             ax.set_ylabel(ylabel)
             ax.set_xticks(range(len(names)))
-            ax.set_xticklabels(names, rotation=20, ha="right")
+            ax.set_xticklabels(names, rotation=20, ha="right", fontsize=10)
             for bar, val in zip(bars, values):
                 ax.text(
                     bar.get_x() + bar.get_width() / 2,

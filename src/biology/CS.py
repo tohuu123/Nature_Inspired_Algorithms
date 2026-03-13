@@ -10,10 +10,6 @@ class CS:
 
     Parameters
     ----------
-    obj_func   : callable
-        Objective function to *minimise*.  Signature: f(x: ndarray) -> float.
-    bounds     : ndarray, shape (n_dims, 2)
-        Lower and upper bounds for each dimension [[lo, hi], ...].
     n_nests    : int
         Number of host nests (population size).
     max_iter   : int
@@ -24,12 +20,13 @@ class CS:
         Step size scale for the Lévy flight.
     beta_levy  : float
         Lévy exponent (1 < β ≤ 2; β=1.5 is typical).
+    
+    Notes
+    -----
+    The objective function and bounds are passed to the run() method.
     """
 
-    def __init__(self, obj_func, bounds, n_nests=25, max_iter=500, pa=0.25, alpha=0.01, beta_levy=1.5):
-        self.obj_func  = obj_func
-        self.bounds    = np.asarray(bounds, dtype=float)
-        self.n_dims    = len(self.bounds)
+    def __init__(self, n_nests=25, max_iter=500, pa=0.25, alpha=0.01, beta_levy=1.5):
         self.n_nests   = n_nests
         self.max_iter  = max_iter
         self.pa        = pa
@@ -41,6 +38,9 @@ class CS:
         den = gamma_func((1 + beta_levy) / 2) * beta_levy * (2 ** ((beta_levy - 1) / 2))
         self._sigma_u = (num / den) ** (1.0 / beta_levy)
 
+        self.obj_func      = None
+        self.bounds        = None
+        self.n_dims        = None
         self.best_position = None
         self.best_score    = np.inf
         self.history       = []
@@ -87,12 +87,16 @@ class CS:
 
         return nests, scores
 
-    def run(self, verbose=True):
+    def run(self, obj_func, bounds, verbose=True):
         """
         Execute the Cuckoo Search algorithm.
 
         Parameters
         ----------
+        obj_func : callable
+            Objective function to minimise. Signature: f(x: ndarray) -> float.
+        bounds : ndarray, shape (n_dims, 2)
+            Lower and upper bounds for each dimension [[lo, hi], ...].
         verbose : bool
             If True, print a progress line whenever a new best is found.
 
@@ -102,6 +106,10 @@ class CS:
         best_score    : float    Corresponding objective value.
         history       : list     Global best score per iteration.
         """
+        self.obj_func = obj_func
+        self.bounds   = np.asarray(bounds, dtype=float)
+        self.n_dims   = len(self.bounds)
+        
         lo, hi        = self.bounds[:, 0], self.bounds[:, 1]
         nests, scores = self._initialise()
 
@@ -176,8 +184,6 @@ if __name__ == "__main__":
         print("=" * 56)
 
         cs = CS(
-            obj_func=func,
-            bounds=bounds,
             n_nests=N_NESTS,
             max_iter=MAX_ITER,
             pa=PA,
@@ -185,7 +191,7 @@ if __name__ == "__main__":
             beta_levy=BETA_LEVY,
         )
 
-        best_pos, best_score, history = cs.run(verbose=True)
+        best_pos, best_score, history = cs.run(obj_func=func, bounds=bounds, verbose=True)
 
         print("\nBest solution : f([%s])" % np.around(best_pos, decimals=5))
         print("Best score    : %.5f" % best_score)

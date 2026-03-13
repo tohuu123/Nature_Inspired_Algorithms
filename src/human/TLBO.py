@@ -23,28 +23,38 @@ class TLBO:
 
     Parameters
     ----------
-    obj_func : callable
-        Objective function  f(x: ndarray) -> float  (to minimise).
-    bounds   : ndarray, shape (D, 2)
-        Lower and upper bounds per dimension.
     pop_size : int
         Number of learners (population size).
     max_iter : int
         Maximum number of iterations (generations).
+    
+    Notes
+    -----
+    The objective function and bounds are passed to the run() method.
     """
 
-    def __init__(self, obj_func, bounds, pop_size=30, max_iter=500):
-        self.obj_func = obj_func
-        self.bounds   = np.asarray(bounds, dtype=float)
+    def __init__(self, pop_size=30, max_iter=500):
         self.pop_size = pop_size
         self.max_iter = max_iter
-        self.dim      = len(self.bounds)
+        
+        self.obj_func = None
+        self.bounds   = None
+        self.dim      = None
         self.history  = []
 
     # ------------------------------------------------------------------
-    def run(self, verbose=True):
+    def run(self, obj_func, bounds, verbose=True):
         """
         Execute TLBO.
+
+        Parameters
+        ----------
+        obj_func : callable
+            Objective function f(x: ndarray) -> float (to minimise).
+        bounds : ndarray, shape (D, 2)
+            Lower and upper bounds per dimension.
+        verbose : bool
+            If True, print progress updates.
 
         Returns
         -------
@@ -52,6 +62,10 @@ class TLBO:
         best_cost     : float     Objective value of the best learner.
         history       : list      Best cost at every iteration.
         """
+        self.obj_func = obj_func
+        self.bounds   = np.asarray(bounds, dtype=float)
+        self.dim      = len(self.bounds)
+        
         lb = self.bounds[:, 0]
         ub = self.bounds[:, 1]
         rng = np.random.default_rng()

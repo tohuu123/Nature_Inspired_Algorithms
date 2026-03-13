@@ -19,13 +19,13 @@ import argparse
 import os
 import sys
 import time
-import csv
 
 # ── ensure project root is on sys.path ─────────────────────────────────
 ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+from src.utils.logger import export_continuous_csv, export_discrete_csv, export_graph_csv
 from src.benchmark import BenchmarkRunner
 from src.visualization.visualize import (
     plot_convergence, plot_box_scores, plot_time_comparison,
@@ -35,71 +35,6 @@ from src.visualization.visualize import (
 )
 
 import numpy as np
-
-
-# ╔═════════════════════════════════════════════════════════════════════════╗
-# ║                        CSV export helpers                             ║
-# ╚═════════════════════════════════════════════════════════════════════════╝
-
-def export_continuous_csv(results, save_dir):
-    """Write continuous benchmark stats to CSV."""
-    path = os.path.join(save_dir, "continuous_stats.csv")
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["Function", "Algorithm", "Mean", "Std", "Best", "Worst",
-                     "Median", "MeanTime_s"])
-        for fname, algos in results.items():
-            for aname, trials in algos.items():
-                scores = [tr["score"] for tr in trials if np.isfinite(tr["score"])]
-                times  = [tr["time"]  for tr in trials]
-                if not scores:
-                    continue
-                w.writerow([
-                    fname, aname,
-                    f"{np.mean(scores):.6e}", f"{np.std(scores):.6e}",
-                    f"{np.min(scores):.6e}", f"{np.max(scores):.6e}",
-                    f"{np.median(scores):.6e}", f"{np.mean(times):.4f}",
-                ])
-    print(f"  [OK]  {path}")
-
-
-def export_discrete_csv(results, save_dir):
-    """Write discrete benchmark stats to CSV."""
-    path = os.path.join(save_dir, "discrete_stats.csv")
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["Problem", "Algorithm", "Mean", "Std", "Best", "Worst", "MeanTime_s"])
-        for pname, algos in results.items():
-            for aname, trials in algos.items():
-                scores = [tr["score"] for tr in trials if np.isfinite(tr["score"])]
-                times  = [tr["time"]  for tr in trials]
-                if not scores:
-                    continue
-                w.writerow([
-                    pname, aname,
-                    f"{np.mean(scores):.4f}", f"{np.std(scores):.4f}",
-                    f"{np.min(scores):.4f}", f"{np.max(scores):.4f}",
-                    f"{np.mean(times):.4f}",
-                ])
-    print(f"  [OK]  {path}")
-
-
-def export_graph_csv(results, save_dir):
-    """Write graph search stats to CSV."""
-    path = os.path.join(save_dir, "graph_search_stats.csv")
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["Grid", "Algorithm", "PathLength", "NodesExpanded", "Time_ms"])
-        for label, data in results.items():
-            for aname, m in data["algos"].items():
-                w.writerow([
-                    label, aname,
-                    m["path_length"], m["nodes_expanded"],
-                    f"{m['elapsed_ms']:.4f}",
-                ])
-    print(f"  [OK]  {path}")
-
-
 # ╔═════════════════════════════════════════════════════════════════════════╗
 # ║                               main()                                 ║
 # ╚═════════════════════════════════════════════════════════════════════════╝
@@ -115,6 +50,10 @@ def main():
     parser.add_argument("--fast",    action="store_true",   help="Quick test: 3 trials, 100 iter")
     parser.add_argument("--only",    type=str, choices=["continuous", "discrete", "graph", "all"],
                         default="all", help="Run only a specific benchmark type")
+    parser.add_argument("--save-json", action="store_true",
+                        help="Save continuous & discrete benchmark results to <outdir>/*.json")
+    parser.add_argument("--load-json", type=str, default=None, metavar="DIR",
+                        help="Load results from <DIR>/*.json and skip re-running")
     args = parser.parse_args()
 
     if args.fast:
@@ -138,7 +77,14 @@ def main():
         print("\n" + "=" * 60)
         print("  CONTINUOUS OPTIMISATION BENCHMARKS")
         print("=" * 60)
-        cont_results = runner.run_continuous_benchmarks(verbose=True)
+        if args.load_json:
+            print(f"\n  Loading continuous results from '{args.load_json}/continuous_results.json' ...")
+            cont_results = runner.load_continuous_benchmarks(args.load_json)
+        else:
+            cont_results = runner.run_continuous_benchmarks(verbose=True)
+            if args.save_json:
+                path = runner.save_continuous_benchmarks(cont_results, save_dir)
+                print(f"\n  Continuous results saved to: {path}")
         print("\n  Generating continuous charts ...")
         plot_convergence(cont_results, save_dir)
         plot_box_scores(cont_results, save_dir)
@@ -153,7 +99,14 @@ def main():
         print("\n" + "=" * 60)
         print("  DISCRETE PROBLEM BENCHMARKS")
         print("=" * 60)
-        disc_results = runner.run_discrete_benchmarks(verbose=True)
+        if args.load_json:
+            print(f"\n  Loading discrete results from '{args.load_json}/discrete_results.json' ...")
+            disc_results = runner.load_discrete_benchmarks(args.load_json)
+        else:
+            disc_results = runner.run_discrete_benchmarks(verbose=True)
+            if args.save_json:
+                path = runner.save_discrete_benchmarks(disc_results, save_dir)
+                print(f"\n  Discrete results saved to: {path}")
         print("\n  Generating discrete charts ...")
         plot_discrete_convergence(disc_results, save_dir)
         plot_discrete_bar(disc_results, save_dir)

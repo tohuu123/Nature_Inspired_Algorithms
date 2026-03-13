@@ -10,10 +10,6 @@ class PSO:
 
     Parameters
     ----------
-    obj_func    : callable
-        Objective function to *minimise*.  Signature: f(x: ndarray) -> float.
-    bounds      : ndarray, shape (n_dims, 2)
-        Lower and upper bounds for each dimension [[lo, hi], ...].
     n_particles : int
         Number of particles in the swarm.
     max_iter    : int
@@ -26,22 +22,25 @@ class PSO:
         Social coefficient (attraction toward global best).
     v_max_ratio : float
         Velocity clipping as a fraction of the search range per dimension.
+    
+    Notes
+    -----
+    The objective function and bounds are passed to the run() method.
     """
 
-    def __init__(self, obj_func, bounds, n_particles=30, max_iter=500, w=0.7, c1=1.5, c2=1.5, v_max_ratio=0.2):
-        self.obj_func    = obj_func
-        self.bounds      = np.asarray(bounds, dtype=float)
-        self.n_dims      = len(self.bounds)
+    def __init__(self, n_particles=30, max_iter=500, w=0.7, c1=1.5, c2=1.5, v_max_ratio=0.2):
         self.n_particles = n_particles
         self.max_iter    = max_iter
         self.w           = w
         self.c1          = c1
         self.c2          = c2
+        self.v_max_ratio = v_max_ratio
 
-        lo, hi     = self.bounds[:, 0], self.bounds[:, 1]
-        self.v_max = v_max_ratio * (hi - lo)
-        self.v_min = -self.v_max
-
+        self.bounds        = None
+        self.n_dims        = None
+        self.obj_func      = None
+        self.v_max         = None
+        self.v_min         = None
         self.best_position = None
         self.best_score    = np.inf
         self.history       = []
@@ -57,12 +56,16 @@ class PSO:
         """Evaluate the objective for every particle."""
         return np.array([self.obj_func(p) for p in positions])
 
-    def run(self, verbose=True):
+    def run(self, obj_func, bounds, verbose=True):
         """
         Execute the PSO algorithm.
 
         Parameters
         ----------
+        obj_func : callable
+            Objective function to minimise. Signature: f(x: ndarray) -> float.
+        bounds : ndarray, shape (n_dims, 2)
+            Lower and upper bounds for each dimension [[lo, hi], ...].
         verbose : bool
             If True, print a line whenever the global best improves.
 
@@ -72,7 +75,13 @@ class PSO:
         best_score    : float    Corresponding objective value.
         history       : list     Global best score at every iteration.
         """
-        lo, hi                 = self.bounds[:, 0], self.bounds[:, 1]
+        self.obj_func = obj_func
+        self.bounds   = np.asarray(bounds, dtype=float)
+        self.n_dims   = len(self.bounds)
+        
+        lo, hi        = self.bounds[:, 0], self.bounds[:, 1]
+        self.v_max    = self.v_max_ratio * (hi - lo)
+        self.v_min    = -self.v_max
         positions, velocities  = self._initialise()
         scores                 = self._evaluate(positions)
 
@@ -132,8 +141,7 @@ class PSO:
 
 
 if __name__ == "__main__":
-    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-    from testing.continous_problems import sphere, rastrigin, ackley
+    from src.testing.continous.test_functions import sphere, rastrigin, ackley
 
     DIMS        = 10
     N_PARTICLES = 40
@@ -155,8 +163,6 @@ if __name__ == "__main__":
         print("=" * 56)
 
         pso = PSO(
-            obj_func=func,
-            bounds=bounds,
             n_particles=N_PARTICLES,
             max_iter=MAX_ITER,
             w=W,
@@ -164,7 +170,7 @@ if __name__ == "__main__":
             c2=C2,
         )
 
-        best_pos, best_score, history = pso.run(verbose=True)
+        best_pos, best_score, history = pso.run(obj_func=func, bounds=bounds, verbose=True)
 
         print("\nBest solution : f([%s])" % np.around(best_pos, decimals=5))
         print("Best score    : %.5f" % best_score)

@@ -15,28 +15,25 @@ class HillClimbing:
 
     Parameters
     ----------
-    obj_func   : callable
-        Objective function to *minimise*.  Signature: f(x: np.ndarray) -> float.
-    bounds     : np.ndarray, shape (dim, 2)
-        Lower and upper bounds per dimension [[lo, hi], ...].
-    dim        : int
-        Number of dimensions.
     max_iter   : int
         Maximum number of improvement iterations.
     step_size  : float
         Neighbourhood radius as a fraction of each dimension's range.
     n_neighbours : int
         Number of candidate neighbours evaluated per iteration.
+    
+    Notes
+    -----
+    The objective function and bounds are passed to the run() method.
     """
 
-    def __init__(self, obj_func, bounds, dim=2, max_iter=1000, step_size=0.05, n_neighbours=8):
-        self.obj_func    = obj_func
-        self.bounds      = np.asarray(bounds, dtype=float)
-        self.dim         = dim
-        self.max_iter    = max_iter
-        self.step_size   = step_size
-        self.n_neighbours = n_neighbours
+    def __init__(self, max_iter=1000, step_size=0.1, n_neighbours=8):
+        self.max_iter      = max_iter
+        self.step_size     = step_size
+        self.n_neighbours  = n_neighbours
 
+        self.obj_func      = None
+        self.bounds        = None
         self.best_solution = None
         self.best_cost     = np.inf
         self.history       = []
@@ -53,7 +50,28 @@ class HillClimbing:
         deltas  = np.random.randn(self.n_neighbours, self.dim) * sigma
         return np.clip(x + deltas, lo, hi)
 
-    def run(self, verbose=True):
+    def run(self, obj_func, bounds, verbose=True):
+        """
+        Execute the Hill Climbing algorithm.
+
+        Parameters
+        ----------
+        obj_func : callable
+            Objective function to minimise. Signature: f(x: np.ndarray) -> float.
+        bounds : np.ndarray, shape (dim, 2)
+            Lower and upper bounds per dimension [[lo, hi], ...].
+        verbose : bool
+            If True, print progress updates.
+
+        Returns
+        -------
+        best_solution : np.ndarray  The best solution found.
+        best_cost     : float       The corresponding objective value.
+        history       : list        Best cost at every iteration.
+        """
+        self.obj_func = obj_func
+        self.bounds   = np.asarray(bounds, dtype=float)
+        self.dim      = len(self.bounds)
 
         current_sol  = self._initialise()
         current_cost = self.obj_func(current_sol)
@@ -122,15 +140,12 @@ if __name__ == "__main__":
         print("=" * 56)
 
         hc = HillClimbing(
-            obj_func=func,
-            bounds=bounds,
-            dim=DIMS,
             max_iter=1000,
             step_size=0.05,
             n_neighbours=8,
         )
 
-        best_sol, best_cost, history = hc.run(verbose=True)
+        best_sol, best_cost, history = hc.run(obj_func=func, bounds=bounds, verbose=True)
 
         print("\nBest solution : f([%s])" % np.around(best_sol, decimals=5))
         print("Best cost     : %.6f" % best_cost)
