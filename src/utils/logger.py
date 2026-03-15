@@ -369,3 +369,48 @@ def load_scalability_benchmarks(save_dir="output"):
     # Convert string dimension keys back to int
     return {int(dim): dim_data for dim, dim_data in raw.items()}
 
+
+def save_parameter_sensitivity_benchmarks(results, save_dir="output"):
+    """
+    Serialise parameter sensitivity benchmark results to JSON.
+
+    Parameters
+    ----------
+    results : dict
+        Returned by ``BenchmarkRunner.run_parameters_sensitivity()``.
+    save_dir : str
+        Target directory; file is ``<save_dir>/parameter_sensitivity_results.json``.
+
+    Returns
+    -------
+    str
+        Absolute path of the written JSON file.
+    """
+    os.makedirs(save_dir, exist_ok=True)
+    payload = _to_list(results)
+    path = os.path.join(save_dir, "parameter_sensitivity_results.json")
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2)
+    return os.path.abspath(path)
+
+
+def load_parameter_sensitivity_benchmarks(save_dir="output"):
+    """
+    Load parameter sensitivity benchmark results from JSON.
+
+    Parameters
+    ----------
+    save_dir : str
+        Directory containing ``parameter_sensitivity_results.json``.
+
+    Returns
+    -------
+    dict
+        Same structure as ``run_parameters_sensitivity()`` output.
+    """
+    path = os.path.join(save_dir, "parameter_sensitivity_results.json")
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"No parameter_sensitivity_results.json found in '{save_dir}'.")
+    with open(path) as f:
+        return json.load(f)
+

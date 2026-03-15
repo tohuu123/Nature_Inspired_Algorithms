@@ -6,10 +6,12 @@ from .logger import (
     load_exploration_exploitation_benchmarks,
     load_discrete_benchmarks,
     load_scalability_benchmarks,
+    load_parameter_sensitivity_benchmarks,
     save_continuous_benchmarks,
     save_exploration_exploitation_benchmarks,
     save_discrete_benchmarks,
     save_scalability_benchmarks,
+    save_parameter_sensitivity_benchmarks,
 )
 
 __all__ = [
@@ -20,8 +22,10 @@ __all__ = [
     "load_exploration_exploitation_benchmarks",
     "load_discrete_benchmarks",
     "load_scalability_benchmarks",
+    "load_parameter_sensitivity_benchmarks",
     "save_continuous_benchmarks",
     "save_exploration_exploitation_benchmarks",
     "save_discrete_benchmarks",
     "save_scalability_benchmarks",
+    "save_parameter_sensitivity_benchmarks",
 ]

@@ -260,7 +260,7 @@ class TSPSolver:
 
         return best_tour, self.tsp.total_distance(best_tour), history
 
-    def solve_ga(self, pop_size=100, max_iter=500, CR=0.9, mutation_rate=0.02, tournament_size=3, elitism_rate=0.1, beta=2.0, verbose=True):
+    def solve_ga(self, pop_size=100, max_iter=500, CR=0.9, mutation_rate=0.02, tournament_size=3, elitism_rate=0.1, beta=2.0, verbose=False):
         """
         Solve the TSP with a Genetic Algorithm.
 

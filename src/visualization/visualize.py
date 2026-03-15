@@ -107,6 +107,103 @@ def _coords_from_distance_matrix(dist_matrix):
 
     return coords
 
+
+def plot_surface_3d(bounds, grid_size=160, elev=35, azim=-60, cmap="viridis"):
+    """
+    Plot 3D surfaces for common continuous benchmark functions in 2D.
+
+    Functions included: Sphere, Rastrigin, Rosenbrock, Griewank, Ackley.
+
+    Parameters
+    ----------
+    bounds : tuple[float, float] | dict[str, tuple[float, float]]
+        Plot bounds selected by the user.
+        - If tuple/list: use the same (low, high) range for all functions.
+        - If dict: provide per-function ranges with keys:
+          "Sphere", "Rastrigin", "Rosenbrock", "Griewank", "Ackley".
+    grid_size : int
+        Number of points per axis for mesh generation.
+    elev : float
+        Elevation angle (degrees) for 3D camera view.
+    azim : float
+        Azimuth angle (degrees) for 3D camera view.
+    cmap : str
+        Matplotlib colormap name.
+    """
+    if grid_size < 20:
+        raise ValueError("grid_size must be >= 20 for a meaningful surface plot.")
+
+    def _validate_bound(bound, label):
+        if not isinstance(bound, (tuple, list)) or len(bound) != 2:
+            raise ValueError(f"{label} must be a (low, high) pair.")
+        lo, hi = float(bound[0]), float(bound[1])
+        if not lo < hi:
+            raise ValueError(f"{label} must satisfy low < high.")
+        return lo, hi
+
+    def _sphere(X, Y):
+        return X ** 2 + Y ** 2
+
+    def _rastrigin(X, Y):
+        return 20 + (X ** 2 - 10 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10 * np.cos(2 * np.pi * Y))
+
+    def _rosenbrock(X, Y):
+        return 100 * (Y - X ** 2) ** 2 + (1 - X) ** 2
+
+    def _griewank(X, Y):
+        return 1 + (X ** 2 + Y ** 2) / 4000 - np.cos(X) * np.cos(Y / np.sqrt(2))
+
+    def _ackley(X, Y):
+        return (
+            -20 * np.exp(-0.2 * np.sqrt(0.5 * (X ** 2 + Y ** 2)))
+            - np.exp(0.5 * (np.cos(2 * np.pi * X) + np.cos(2 * np.pi * Y)))
+            + 20 + np.e
+        )
+
+    function_names = ["Sphere", "Rastrigin", "Rosenbrock", "Griewank", "Ackley"]
+
+    if isinstance(bounds, dict):
+        missing = [name for name in function_names if name not in bounds]
+        if missing:
+            raise ValueError(f"Missing bounds for: {', '.join(missing)}")
+        function_bounds = {name: _validate_bound(bounds[name], f"bounds['{name}']") for name in function_names}
+    else:
+        common_bound = _validate_bound(bounds, "bounds")
+        function_bounds = {name: common_bound for name in function_names}
+
+    specs = [
+        ("Sphere", _sphere, function_bounds["Sphere"]),
+        ("Rastrigin", _rastrigin, function_bounds["Rastrigin"]),
+        ("Rosenbrock", _rosenbrock, function_bounds["Rosenbrock"]),
+        ("Griewank", _griewank, function_bounds["Griewank"]),
+        ("Ackley", _ackley, function_bounds["Ackley"]),
+    ]
+
+    fig = plt.figure(figsize=(18, 10))
+    for idx, (name, fn, (lo, hi)) in enumerate(specs, start=1):
+        x = np.linspace(lo, hi, grid_size)
+        y = np.linspace(lo, hi, grid_size)
+        X, Y = np.meshgrid(x, y)
+        Z = fn(X, Y)
+
+        ax = fig.add_subplot(2, 3, idx, projection="3d")
+        surf = ax.plot_surface(X, Y, Z, cmap=cmap, linewidth=0, antialiased=True, alpha=0.95)
+        ax.set_title(name, fontsize=12, fontweight="bold")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("f(x, y)")
+        ax.view_init(elev=elev, azim=azim)
+        fig.colorbar(surf, ax=ax, shrink=0.55, aspect=12, pad=0.08)
+
+    # Keep the sixth panel empty for a cleaner 2x3 layout.
+    empty_ax = fig.add_subplot(2, 3, 6)
+    empty_ax.axis("off")
+
+    fig.suptitle("3D Surfaces of Benchmark Functions", fontsize=15, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.show()
+    plt.close(fig)
+
 # ╔═════════════════════════════════════════════════════════════════════════╗
 # ║  1. Continuous Optimisation Plots                                     ║
 # ╚═════════════════════════════════════════════════════════════════════════╝
@@ -469,6 +566,70 @@ def plot_scalability(scalability_results, save_dir="output"):
         fig.tight_layout()
         plt.show()
         plt.close(fig)
+
+
+def plot_para_sensitivity(results, save_dir="output"):
+    """
+    Plot parameter sensitivity curves for GA (mutation_rate), ACO (rho), and SA (alpha).
+
+    Input format
+    ------------
+    results = {
+      "GA":  {"records": [{"value": ..., "mean_score": ..., "std_score": ...}, ...]},
+      "ACO": {"records": [{"value": ..., "mean_score": ..., "std_score": ...}, ...]},
+      "SA":  {"records": [{"value": ..., "mean_score": ..., "std_score": ...}, ...]},
+    }
+    """
+    _ensure_dir(save_dir)
+
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5))
+    specs = [
+        ("GA", "mutation_rate"),
+        ("ACO", "rho"),
+        ("SA", "alpha"),
+    ]
+
+    for ax, (algo_name, param_name) in zip(axes, specs):
+        section = results.get(algo_name, {})
+        records = section.get("records", []) if isinstance(section, dict) else []
+
+        xs, means, stds = [], [], []
+        for rec in records:
+            value = rec.get("value")
+            mean_score = rec.get("mean_score")
+            std_score = rec.get("std_score", 0.0)
+            if value is None or mean_score is None:
+                continue
+            if not np.isfinite(mean_score):
+                continue
+            xs.append(float(value))
+            means.append(float(mean_score))
+            stds.append(float(std_score) if np.isfinite(std_score) else 0.0)
+
+        if not xs:
+            ax.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=12, color="#666666")
+            ax.set_title(f"{algo_name} - {param_name}", fontsize=13, fontweight="bold")
+            ax.set_axis_off()
+            continue
+
+        order = np.argsort(xs)
+        xs = np.asarray(xs)[order]
+        means = np.asarray(means)[order]
+        stds = np.asarray(stds)[order]
+
+        color = _color(algo_name)
+        ax.plot(xs, means, marker="o", linewidth=2.2, markersize=6, color=color, alpha=0.9)
+        ax.fill_between(xs, means - stds, means + stds, color=color, alpha=0.18)
+        ax.set_xlabel(param_name, fontsize=11)
+        ax.set_ylabel("Mean Score ± Std", fontsize=11)
+        ax.set_title(f"{algo_name} Sensitivity", fontsize=13, fontweight="bold")
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=min(6, len(xs)), prune=None))
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle("Parameter Sensitivity Analysis", fontsize=15, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+    plt.close(fig)
 
 
 # ╔═════════════════════════════════════════════════════════════════════════╗

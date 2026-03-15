@@ -73,6 +73,176 @@ class BenchmarkRunner:
         self.max_iter = max_iter
         self.seed     = seed
 
+    def _as_1d_float_array(self, values, name):
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        if arr.size == 0:
+            raise ValueError(f"'{name}' must contain at least one value.")
+        return arr
+
+    def _parse_sensitivity_parameters(self, parameters):
+        if isinstance(parameters, dict):
+            needed = ["mutation_rate", "rho", "alpha"]
+            missing = [k for k in needed if k not in parameters]
+            if missing:
+                raise ValueError(f"Missing sensitivity parameters: {missing}")
+            return {
+                "mutation_rate": self._as_1d_float_array(parameters["mutation_rate"], "mutation_rate"),
+                "rho": self._as_1d_float_array(parameters["rho"], "rho"),
+                "alpha": self._as_1d_float_array(parameters["alpha"], "alpha"),
+            }
+
+        if isinstance(parameters, (list, tuple)) and len(parameters) == 3:
+            return {
+                "mutation_rate": self._as_1d_float_array(parameters[0], "mutation_rate"),
+                "rho": self._as_1d_float_array(parameters[1], "rho"),
+                "alpha": self._as_1d_float_array(parameters[2], "alpha"),
+            }
+
+        raise ValueError(
+            "parameters must be a dict with keys 'mutation_rate', 'rho', 'alpha' "
+            "or a (mutation_rate, rho, alpha) tuple/list."
+        )
+
+    def run_parameters_sensitivity(self, parameters, continuous_func=sphere, TEST_CASE="test_case/medium_tsp_30.json", continuous_bounds=(-5.12, 5.12), ga_chrom_len=100, ga_pop_size=200, aco_n_cities=20, aco_n_ants=20, verbose=False):
+        parsed = self._parse_sensitivity_parameters(parameters)
+        mutation_rates = parsed["mutation_rate"]
+        rho_values = parsed["rho"]
+        alpha_values = parsed["alpha"]
+
+        lo, hi = float(continuous_bounds[0]), float(continuous_bounds[1])
+        if lo >= hi:
+            raise ValueError("continuous_bounds must satisfy low < high.")
+
+        bounds = _make_bounds(lo, hi, self.dim)
+        
+        # load the problem on small_tsp_10.json
+        tsp = TSP(np.zeros((1,1))) # dummy init
+        tsp.load_from_json(TEST_CASE)
+
+        results = {
+            "meta": {
+                "n_trials": int(self.n_trials),
+                "dim": int(self.dim),
+                "max_iter": int(self.max_iter),
+                "seed": int(self.seed),
+                "aco_n_cities": int(aco_n_cities),
+            },
+            "GA": {
+                "parameter_name": "mutation_rate",
+                "objective": "maximize",
+                "records": [],
+            },
+            "ACO": {
+                "parameter_name": "rho",
+                "objective": "minimize",
+                "records": [],
+            },
+            "SA": {
+                "parameter_name": "alpha",
+                "objective": "minimize",
+                "records": [],
+            },
+        }
+        TSP_solver = TSPSolver(tsp)
+
+        for rate in mutation_rates:
+            runs = []
+            for t in range(self.n_trials):
+                np.random.seed(self.seed + t)
+                try:
+                    out = TSP_solver.solve_ga(
+                        pop_size=int(ga_pop_size),
+                        max_iter=int(self.max_iter),
+                        mutation_rate=float(rate),
+                    )
+                    
+                    t0 = time.perf_counter()
+                    elapsed = time.perf_counter() - t0
+                    runs.append({
+                        "score": float(out[1]),
+                        "time": float(elapsed),
+                        "history": list(out[2]) if len(out) > 2 else [],
+                    })
+                except Exception as e:
+                    if verbose:
+                        print(f"  [WARN] GA/mutation_rate={rate} trial {t}: {e}")
+                    runs.append({"score": float("-inf"), "time": 0.0, "history": []})
+
+            scores = [r["score"] for r in runs if np.isfinite(r["score"])]
+            times = [r["time"] for r in runs]
+            results["GA"]["records"].append({
+                "value": float(rate),
+                "trials": runs,
+                "mean_score": float(np.mean(scores)) if scores else float("nan"),
+                "std_score": float(np.std(scores)) if scores else float("nan"),
+                "mean_time": float(np.mean(times)) if times else 0.0,
+            })
+
+        for rho in rho_values:
+            runs = []
+            for t in range(self.n_trials):
+                np.random.seed(self.seed + t)
+                try:
+                    aco = ACO(
+                        dist_matrix=tsp.dist_matrix,
+                        n_ants=int(aco_n_ants),
+                        n_iter=int(self.max_iter),
+                        rho=float(rho),
+                    )
+                    t0 = time.perf_counter()
+                    out = aco.run(verbose=False)
+                    elapsed = time.perf_counter() - t0
+                    runs.append({
+                        "score": float(out[1]),
+                        "time": float(elapsed),
+                        "history": list(out[2]) if len(out) > 2 else [],
+                    })
+                except Exception as e:
+                    if verbose:
+                        print(f"  [WARN] ACO/rho={rho} trial {t}: {e}")
+                    runs.append({"score": float("inf"), "time": 0.0, "history": []})
+
+            scores = [r["score"] for r in runs if np.isfinite(r["score"])]
+            times = [r["time"] for r in runs]
+            results["ACO"]["records"].append({
+                "value": float(rho),
+                "trials": runs,
+                "mean_score": float(np.mean(scores)) if scores else float("nan"),
+                "std_score": float(np.std(scores)) if scores else float("nan"),
+                "mean_time": float(np.mean(times)) if times else 0.0,
+            })
+
+        for alpha in alpha_values:
+            runs = []
+            for t in range(self.n_trials):
+                np.random.seed(self.seed + t)
+                try:    
+                    sa = SA(max_iter=int(self.max_iter), alpha=float(alpha))
+                    t0 = time.perf_counter()
+                    out = sa.run(obj_func=continuous_func, bounds=bounds, verbose=True)
+                    elapsed = time.perf_counter() - t0
+                    runs.append({
+                        "score": float(out[1]),
+                        "time": float(elapsed),
+                        "history": list(out[2]) if len(out) > 2 else [],
+                    })
+                except Exception as e:
+                    if verbose:
+                        print(f"  [WARN] SA/alpha={alpha} trial {t}: {e}")
+                    runs.append({"score": float("inf"), "time": 0.0, "history": []})
+
+            scores = [r["score"] for r in runs if np.isfinite(r["score"])]
+            times = [r["time"] for r in runs]
+            results["SA"]["records"].append({
+                "value": float(alpha),
+                "trials": runs,
+                "mean_score": float(np.mean(scores)) if scores else float("nan"),
+                "std_score": float(np.std(scores)) if scores else float("nan"),
+                "mean_time": float(np.mean(times)) if times else 0.0,
+            })
+
+        return results
+
     def _population_diversity(self, population):
         return float(np.mean(np.std(population, axis=0)))
 
